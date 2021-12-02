@@ -1,0 +1,81 @@
+version: '3.9'
+
+networks:
+  cicd-net:
+
+services:
+  gitlab:
+    image: 'gitlab/gitlab-ce:latest'
+    hostname: '192.168.0.200'
+    environment:
+      GITLAB_OMNIBUS_CONFIG: |
+        # external_url 'http://192.168.0.200:8081'
+        gitlab_rails['gitlab_shell_ssh_port'] = 2222
+    ports:
+      - '8081:80'
+      - '2222:22'
+    networks:
+      - cicd-net
+    volumes:
+      - './gitlab/srv/gitlab/config:/etc/gitlab'
+      - './gitlab/srv/gitlab/logs:/var/log/gitlab'
+      - './gitlab/srv/gitlab/data:/var/opt/gitlab'
+    restart: unless-stopped
+
+  gitlab-runner:
+    image: gitlab/gitlab-runner:alpine
+    networks:
+      - cicd-net
+    volumes:
+      - ./gitlab/srv/gitlab-runner/config:/etc/gitlab-runner
+      - /var/run/docker.sock:/var/run/docker.sock
+    restart: unless-stopped
+    depends_on:
+      - gitlab
+  
+  drone:
+    container_name: drone
+    image: drone/drone:2.6
+    depends_on:
+      - gitlab
+    environment:
+      - DRONE_GITLAB_SERVER=http://192.168.0.200:8081
+      - DRONE_GITLAB_CLIENT_ID=3af3c7b37624ffb03acaeb9718dd5d92971e4e88b1a04db5a19109f920af564e
+      - DRONE_GITLAB_CLIENT_SECRET=36d819b58efd94cd1cdc875a2e501ad72492e9c4f96310d051ab6a478c3258a6
+      - DRONE_RPC_SECRET=37bbb98d5d7ad1ef5052fb5146cb1c84
+      - DRONE_SERVER_PROTO=http
+      - DRONE_SERVER_HOST=192.168.0.200:3003
+      
+    ports:
+      - '3003:80'
+      - '4443:443'
+    networks:
+      - cicd-net
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./drone:/data
+    restart: unless-stopped
+
+  drone-runner:
+    container_name: drone-runner
+    image: drone/drone-runner-docker:1
+    depends_on:
+      - drone
+    environment:
+      - DRONE_RPC_PROTO=https
+      - DRONE_RPC_HOST=192.168.0.200:3003
+      - DRONE_RPC_SECRET=37bbb98d5d7ad1ef5052fb5146cb1c84
+      - DRONE_RUNNER_NAME=drone-runner
+      - DRONE_RUNNER_CAPACITY=3
+      - DRONE_RUNNER_NETWORKS=cicd-net
+
+    ports:
+      - '3004:3000'
+    networks:
+      - cicd-net
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    restart: unless-stopped
+    
+    
+    
