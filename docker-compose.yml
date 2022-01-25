@@ -2,17 +2,18 @@ version: '3.9'
 
 networks:
   cicd-net:
+    external: true
+    name: cicd-net
 
 services:
   gitlab:
     image: 'gitlab/gitlab-ce:latest'
     hostname: '192.168.0.200'
     environment:
-      GITLAB_OMNIBUS_CONFIG: |
-        # external_url 'http://192.168.0.200:8081'
+      GITLAB_OMNIBUS_CONFIG:
         gitlab_rails['gitlab_shell_ssh_port'] = 2222
     ports:
-      - '8081:80'
+      - '80:80'
       - '2222:22'
     networks:
       - cicd-net
@@ -39,7 +40,7 @@ services:
     depends_on:
       - gitlab
     environment:
-      - DRONE_GITLAB_SERVER=http://192.168.0.200:8081
+      - DRONE_GITLAB_SERVER=http://192.168.0.200
       - DRONE_GITLAB_CLIENT_ID=3af3c7b37624ffb03acaeb9718dd5d92971e4e88b1a04db5a19109f920af564e
       - DRONE_GITLAB_CLIENT_SECRET=36d819b58efd94cd1cdc875a2e501ad72492e9c4f96310d051ab6a478c3258a6
       - DRONE_RPC_SECRET=37bbb98d5d7ad1ef5052fb5146cb1c84
@@ -62,12 +63,14 @@ services:
     depends_on:
       - drone
     environment:
-      - DRONE_RPC_PROTO=https
-      - DRONE_RPC_HOST=192.168.0.200:3003
+      - DRONE_RPC_PROTO=http
+      - DRONE_RPC_HOST=drone
       - DRONE_RPC_SECRET=37bbb98d5d7ad1ef5052fb5146cb1c84
       - DRONE_RUNNER_NAME=drone-runner
       - DRONE_RUNNER_CAPACITY=3
       - DRONE_RUNNER_NETWORKS=cicd-net
+      - DRONE_DEBUG=True
+      - DRONE_TRACE=True
 
     ports:
       - '3004:3000'
@@ -76,6 +79,3 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     restart: unless-stopped
-    
-    
-    
